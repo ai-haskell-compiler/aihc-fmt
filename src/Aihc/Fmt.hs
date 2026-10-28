@@ -144,7 +144,10 @@ physicalSourceTokens tokens =
 
 data PhysicalToken = PhysicalToken
   { physicalToken :: !LexToken,
-    physicalPrettyGap :: !(Maybe Text)
+    physicalPrettyGap :: !(Maybe Text),
+    -- | The column of the token in the pretty-printer output. Comments have
+    -- no column, because the pretty-printer output has no comments.
+    physicalPrettyColumn :: !(Maybe Int)
   }
   deriving (Eq, Show)
 
@@ -177,12 +180,12 @@ alignPhysicalSourceTokens sourceName prettyGaps =
     go _ [] = Right []
     go pairs (tok : toks)
       | isCommentToken tok =
-          (PhysicalToken tok Nothing :) <$> go pairs toks
+          (PhysicalToken tok Nothing Nothing :) <$> go pairs toks
       | otherwise =
           case break ((== tok) . fst) pairs of
             (_, []) -> Left (TokenStreamMismatch sourceName)
             (_, (_, prettyTok) : restPairs) ->
-              (PhysicalToken tok (prettyGapBefore prettyGaps prettyTok) :) <$> go restPairs toks
+              (PhysicalToken tok (prettyGapBefore prettyGaps prettyTok) (Just (sourceSpanStartCol (lexTokenSpan prettyTok))) :) <$> go restPairs toks
 
 prettyGapBefore :: [(LexToken, Text)] -> LexToken -> Maybe Text
 prettyGapBefore prettyGaps tok
@@ -203,25 +206,51 @@ tokenGaps input =
 
 renderFromSourceTokens :: Text -> [PhysicalToken] -> Text
 renderFromSourceTokens input tokens =
-  TE.decodeUtf8 (go Nothing 0 tokens)
+  TE.decodeUtf8 (go Nothing 0 (withCodeColumns tokens))
   where
     bytes = TE.encodeUtf8 input
     total = BS.length bytes
 
     go _previous offset [] = sliceBytes offset total
-    go previous offset (PhysicalToken tok prettyGap : rest) =
+    go previous offset ((PhysicalToken tok prettyGap _, column) : rest) =
       let (start, end) = tokenOffsets tok
           gap = TE.decodeUtf8 (sliceBytes offset start)
-       in TE.encodeUtf8 (renderGap previous tok prettyGap gap)
+       in TE.encodeUtf8 (renderGap previous tok prettyGap column gap)
             <> sliceBytes start end
             <> go (Just tok) end rest
 
     sliceBytes start end = BS.take (end - start) (BS.drop start bytes)
 
-renderGap :: Maybe LexToken -> LexToken -> Maybe Text -> Text -> Text
-renderGap Nothing _current _prettyGap originalGap = originalGap
-renderGap (Just previous) current prettyGap originalGap
-  | isCommentToken previous || isCommentToken current = originalGap
+-- | Give each token the pretty-printer column of the next code token. For a
+-- code token, this is its own column. For a comment, it is the column of the
+-- code token after the comment.
+withCodeColumns :: [PhysicalToken] -> [(PhysicalToken, Maybe Int)]
+withCodeColumns tokens =
+  zip tokens (scanr nextColumn Nothing tokens)
+  where
+    nextColumn tok later =
+      case physicalPrettyColumn tok of
+        Just column -> Just column
+        Nothing -> later
+
+-- | Make the gap before a token. Between two code tokens, use the gap from
+-- the pretty-printer. Next to a comment, keep the original line breaks. A
+-- token that starts a line after a comment goes to the column of the next
+-- code token in the pretty-printer output. Thus a comment does not change
+-- the layout.
+renderGap :: Maybe LexToken -> LexToken -> Maybe Text -> Maybe Int -> Text -> Text
+renderGap Nothing _current _prettyGap _column originalGap = originalGap
+renderGap (Just previous) current prettyGap column originalGap
+  | isCommentToken previous || isCommentToken current =
+      case (T.breakOnEnd "\n" originalGap, column) of
+        ((lineBreaks, _), Just col)
+          | not (T.null lineBreaks) -> lineBreaks <> T.replicate (col - 1) " "
+        _
+          | isCommentToken previous,
+            Just gap <- prettyGap,
+            T.any (== '\n') gap ->
+              gap
+          | otherwise -> originalGap
   | otherwise = fromMaybe originalGap prettyGap
 
 isCommentToken :: LexToken -> Bool
