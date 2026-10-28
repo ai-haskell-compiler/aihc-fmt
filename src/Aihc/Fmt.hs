@@ -25,6 +25,7 @@ import Aihc.Parser.Token
     lexModuleTokensWithSourceNameAndExtensions,
     readModuleHeaderPragmas,
   )
+import Control.Applicative ((<|>))
 import Data.ByteString qualified as BS
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
@@ -228,10 +229,7 @@ withCodeColumns :: [PhysicalToken] -> [(PhysicalToken, Maybe Int)]
 withCodeColumns tokens =
   zip tokens (scanr nextColumn Nothing tokens)
   where
-    nextColumn tok later =
-      case physicalPrettyColumn tok of
-        Just column -> Just column
-        Nothing -> later
+    nextColumn tok later = physicalPrettyColumn tok <|> later
 
 -- | Make the gap before a token. Between two code tokens, use the gap from
 -- the pretty-printer. Next to a comment, keep the original line breaks. A
