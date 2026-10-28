@@ -110,6 +110,10 @@ data TokenFingerprint = TokenFingerprint
   }
   deriving (Eq, Show)
 
+-- | The tokens in the text. The virtual layout tokens are not part of the
+-- fingerprint. The formatter changes whitespace, and the whitespace controls
+-- where the lexer puts these tokens. The AST check finds a layout change that
+-- changes the program.
 tokenFingerprint :: FormatOptions -> FilePath -> Text -> [TokenFingerprint]
 tokenFingerprint opts sourceName input =
   [ TokenFingerprint
@@ -117,7 +121,8 @@ tokenFingerprint opts sourceName input =
         tokenText = lexTokenText tok,
         tokenOrigin = lexTokenOrigin tok
       }
-  | tok <- lexModuleTokensWithSourceNameAndExtensions sourceName (formatBaseExtensions opts input) input
+  | tok <- lexModuleTokensWithSourceNameAndExtensions sourceName (formatBaseExtensions opts input) input,
+    isRealToken tok
   ]
 
 mergePrettyLayout :: FormatOptions -> FilePath -> Text -> Module -> Either FormatError Text
@@ -152,15 +157,38 @@ data PhysicalToken = PhysicalToken
   }
   deriving (Eq, Show)
 
-alignTokenStreams :: FilePath -> [LexToken] -> [LexToken] -> Either FormatError [(LexToken, LexToken)]
+-- | Pair each real source token with its token in the pretty-printer output.
+-- The virtual layout tokens of the source are not paired, because the
+-- whitespace controls where the lexer puts them. An explicit brace or
+-- semicolon in the source can pair with a virtual token of the pretty-printer
+-- output. The other virtual tokens of the pretty-printer output are skipped.
+-- A source token that the AST does not keep has no pair.
+alignTokenStreams :: FilePath -> [LexToken] -> [LexToken] -> Either FormatError [(LexToken, Maybe LexToken)]
 alignTokenStreams sourceName source pretty' =
-  go (semanticTokens source) (semanticTokens pretty')
+  go (filter isRealToken (semanticTokens source)) (semanticTokens pretty')
   where
-    go [] [] = Right []
+    go [] ps
+      | not (any isRealToken ps) = Right []
     go (s : ss) (p : ps)
-      | tokenSemanticsMatch s p = ((s, p) :) <$> go ss ps
-      | otherwise = Left (TokenStreamMismatch sourceName)
+      | tokenSemanticsMatch s p = ((s, Just p) :) <$> go ss ps
+    go ss (p : ps)
+      | not (isRealToken p) = go ss ps
+    go (s : ss) ps
+      | isDroppedSourceToken s ss = ((s, Nothing) :) <$> go ss ps
     go _ _ = Left (TokenStreamMismatch sourceName)
+
+isRealToken :: LexToken -> Bool
+isRealToken tok = lexTokenOrigin tok == FromSource
+
+-- | A source token that the parser accepts but does not keep in the AST. The
+-- pretty-printer cannot print it, so the formatter copies it from the source.
+-- The only such token now is a trailing comma before a closing parenthesis,
+-- as in @module M (a, b,) where@.
+isDroppedSourceToken :: LexToken -> [LexToken] -> Bool
+isDroppedSourceToken tok rest =
+  case (lexTokenKind tok, rest) of
+    (TkSpecialComma, next : _) -> lexTokenKind next == TkSpecialRParen
+    _ -> False
 
 semanticTokens :: [LexToken] -> [LexToken]
 semanticTokens =
@@ -174,7 +202,7 @@ tokenSemanticsMatch :: LexToken -> LexToken -> Bool
 tokenSemanticsMatch source prettyTok =
   lexTokenKind source == lexTokenKind prettyTok
 
-alignPhysicalSourceTokens :: FilePath -> [(LexToken, Text)] -> [(LexToken, LexToken)] -> [LexToken] -> Either FormatError [PhysicalToken]
+alignPhysicalSourceTokens :: FilePath -> [(LexToken, Text)] -> [(LexToken, Maybe LexToken)] -> [LexToken] -> Either FormatError [PhysicalToken]
 alignPhysicalSourceTokens sourceName prettyGaps =
   go
   where
@@ -185,7 +213,9 @@ alignPhysicalSourceTokens sourceName prettyGaps =
       | otherwise =
           case break ((== tok) . fst) pairs of
             (_, []) -> Left (TokenStreamMismatch sourceName)
-            (_, (_, prettyTok) : restPairs) ->
+            (_, (_, Nothing) : restPairs) ->
+              (PhysicalToken tok (Just T.empty) Nothing :) <$> go restPairs toks
+            (_, (_, Just prettyTok) : restPairs) ->
               (PhysicalToken tok (prettyGapBefore prettyGaps prettyTok) (Just (sourceSpanStartCol (lexTokenSpan prettyTok))) :) <$> go restPairs toks
 
 prettyGapBefore :: [(LexToken, Text)] -> LexToken -> Maybe Text
