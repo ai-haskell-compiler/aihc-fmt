@@ -1,0 +1,3 @@
+[submodule "aihc-parser"]
+	path = aihc-parser
+	url = https://github.com/ai-haskell-compiler/aihc-parser.git

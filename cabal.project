@@ -1,0 +1,11 @@
+packages:
+  .
+  aihc-parser
+
+tests: True
+
+-- The aihc-parser test suite needs packages that are not on Hackage.
+-- The formatter only needs the aihc-parser library.
+package aihc-parser
+  tests: False
+  benchmarks: False
