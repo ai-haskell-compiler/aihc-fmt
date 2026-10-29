@@ -54,7 +54,7 @@ fingerprintWith exts source =
 
 test_preservesUnicodeSyntax :: IO ()
 test_preservesUnicodeSyntax = do
-  let opts = FormatOptions {formatExtensions = [EnableExtension UnicodeSyntax]}
+  let opts = defaultFormatOptions {formatExtensions = [EnableExtension UnicodeSyntax]}
       source = T.pack "module Main where\nf∷a→b\n"
       expected = T.pack "module Main where\nf ∷ a → b\n"
   case formatText opts "<test>" source of

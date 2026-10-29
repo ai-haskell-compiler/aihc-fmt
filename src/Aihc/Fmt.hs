@@ -35,16 +35,19 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
-import Prettyprinter (Pretty (pretty), defaultLayoutOptions, layoutPretty)
+import Prettyprinter (LayoutOptions (..), PageWidth (..), Pretty (pretty), layoutPretty)
 import Prettyprinter.Render.Text (renderStrict)
 
-newtype FormatOptions = FormatOptions
-  { formatExtensions :: [ExtensionSetting]
+data FormatOptions = FormatOptions
+  { formatExtensions :: [ExtensionSetting],
+    -- | The maximum line length that the pretty-printer tries to keep. A
+    -- line can be longer when it has no break point.
+    formatLineWidth :: !Int
   }
   deriving (Eq, Show)
 
 defaultFormatOptions :: FormatOptions
-defaultFormatOptions = FormatOptions {formatExtensions = []}
+defaultFormatOptions = FormatOptions {formatExtensions = [], formatLineWidth = 120}
 
 data FormatError
   = OriginalParseFailure !FilePath !Text
@@ -167,7 +170,7 @@ mergePrettyLayout opts sourceName input sourceTrace modu = do
   Right (renderFromSourceTokens input roles)
   where
     exts = formatBaseExtensions opts input
-    prettyInput = renderPretty modu
+    prettyInput = renderPretty (formatLineWidth opts) modu
 
 -- | Pair the trace entries that the AST keeps, by position.
 pairTraces :: FilePath -> [TraceEntry] -> [TraceEntry] -> Either FormatError [(LexToken, LexToken)]
@@ -181,8 +184,8 @@ pairTraces sourceName sourceTrace prettyTrace
     prettyKept = kept prettyTrace
     sameKind a b = tokenKindWithoutSpacing (lexTokenKind a) == tokenKindWithoutSpacing (lexTokenKind b)
 
-renderPretty :: (Pretty a) => a -> Text
-renderPretty = renderStrict . layoutPretty defaultLayoutOptions . pretty
+renderPretty :: (Pretty a) => Int -> a -> Text
+renderPretty width = renderStrict . layoutPretty (LayoutOptions (AvailablePerLine width 1.0)) . pretty
 
 physicalSourceTokens :: [LexToken] -> [LexToken]
 physicalSourceTokens tokens =

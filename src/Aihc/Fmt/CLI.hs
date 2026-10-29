@@ -30,6 +30,7 @@ data Mode
 data Options = Options
   { optMode :: !Mode,
     optExtensions :: ![ExtensionSetting],
+    optLineWidth :: !Int,
     optFiles :: ![FilePath]
   }
   deriving (Eq, Show)
@@ -86,7 +87,7 @@ runStdin opts stdin =
         ModeInplace ->
           pure (CLIResult (ExitFailure 1) "" "aihc-fmt: --mode inplace requires file arguments\n")
   where
-    formatOpts = FormatOptions {formatExtensions = optExtensions opts}
+    formatOpts = cliFormatOptions opts
 
 runFiles ::
   (FilePath -> IO Text) ->
@@ -111,7 +112,7 @@ runOneFile readFileText writeFileText opts acc path = do
   case eInput of
     Left err -> pure (appendIOException path err acc)
     Right input -> do
-      let formatOpts = FormatOptions {formatExtensions = optExtensions opts}
+      let formatOpts = cliFormatOptions opts
       case formatText formatOpts path input of
         Left err ->
           pure
@@ -176,6 +177,7 @@ optionsP =
   Options
     <$> modeOption
     <*> many extensionOption
+    <*> lineWidthOption
     <*> many (argument str (metavar "FILE"))
 
 modeOption :: Parser Mode
@@ -203,6 +205,24 @@ renderMode mode =
     ModeStdout -> "stdout"
     ModeInplace -> "inplace"
     ModeCheck -> "check"
+
+cliFormatOptions :: Options -> FormatOptions
+cliFormatOptions opts =
+  defaultFormatOptions
+    { formatExtensions = optExtensions opts,
+      formatLineWidth = optLineWidth opts
+    }
+
+lineWidthOption :: Parser Int
+lineWidthOption =
+  option
+    auto
+    ( long "line-width"
+        <> metavar "COLUMNS"
+        <> value (formatLineWidth defaultFormatOptions)
+        <> showDefault
+        <> help "Maximum line length that the formatter tries to keep"
+    )
 
 extensionOption :: Parser ExtensionSetting
 extensionOption =
