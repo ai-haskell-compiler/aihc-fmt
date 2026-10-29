@@ -2,7 +2,7 @@
 
 module Main (main) where
 
-import Aihc.Fmt (FormatError (..), FormatOptions (..), defaultFormatOptions, formatText)
+import Aihc.Fmt (FormatOptions (..), defaultFormatOptions, formatText)
 import Aihc.Parser.Syntax (Extension (..), ExtensionSetting (..))
 import Aihc.Parser.Token (LexToken (..), TokenOrigin, lexModuleTokensWithExtensions)
 import Data.Text (Text)
@@ -25,7 +25,7 @@ main = do
         testCase "preserves lexed token stream modulo locations" test_preservesTokenStream,
         testCase "preserves unicode syntax tokens" test_preservesUnicodeSyntax,
         testCase "preserves explicit layout tokens" test_preservesExplicitLayout,
-        testCase "fails closed on unalignable pretty tokens" test_failsClosedOnUnalignablePrettyTokens,
+        testCase "keeps a LANGUAGE pragma with two extensions" test_keepsLanguagePragmaWithTwoExtensions,
         testProperty "accepts shared Hedgehog options" prop_acceptsHedgehogOptions
       ]
 
@@ -71,10 +71,12 @@ test_preservesExplicitLayout = do
     Right formatted ->
       assertEqual "token stream" (fingerprint source) (fingerprint formatted)
 
-test_failsClosedOnUnalignablePrettyTokens :: IO ()
-test_failsClosedOnUnalignablePrettyTokens = do
+-- The pretty-printer writes one pragma for each extension. The formatter
+-- copies pragmas from the source, so the pragma stays as it is.
+test_keepsLanguagePragmaWithTwoExtensions :: IO ()
+test_keepsLanguagePragmaWithTwoExtensions = do
   let source = T.pack "{-# LANGUAGE OverloadedStrings, LambdaCase #-}\nmodule Main where\nx=1\n"
+      expected = T.pack "{-# LANGUAGE OverloadedStrings, LambdaCase #-}\nmodule Main where\nx = 1\n"
   case formatText defaultFormatOptions "<test>" source of
-    Left (TokenStreamMismatch _) -> pure ()
-    Left err -> assertFailure ("expected TokenStreamMismatch, got " <> show err)
-    Right formatted -> assertFailure ("expected TokenStreamMismatch, got output:\n" <> T.unpack formatted)
+    Left err -> assertFailure (show err)
+    Right formatted -> assertEqual "formatted" expected formatted

@@ -1,0 +1,17 @@
+extensions: []
+formatters:
+  aihc-fmt:
+    output: |
+      module Main where
+      r = R {a = case x of
+        A -> 1
+        _ -> 2}
+    status: pass
+input: |
+  module Main where
+  r =
+    R
+      { a = case x of
+          A -> 1
+          _ -> 2
+      }
