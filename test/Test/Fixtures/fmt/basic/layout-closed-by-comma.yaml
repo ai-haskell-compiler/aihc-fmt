@@ -4,8 +4,9 @@ formatters:
     output: |
       module Main where
       xs = [do
-        a
-        b, c]
+          a
+          b,
+        c]
     status: pass
 input: |
   module Main where
