@@ -8,16 +8,13 @@ formatters:
       xs = [1, 2, 3]
       f = case True of {
         True -> 1;
-        False | otherwise
-         -> 0 }
+        False | otherwise -> 0 }
       g = \case {
         True -> 1;
-        False | otherwise
-         -> 0 }
+        False | otherwise -> 0 }
       h = case True of {
         True -> do {
-            pure
-              1 } }
+            pure 1 } }
       q = [d|
         x = 1 |]
       empty = [d| |]

@@ -38,7 +38,8 @@ Cabal and Nix build aihc-parser from this directory.
 
 - Make pretty-printer changes in the aihc-parser repository.
 - Open a PR in aihc-parser for each change to the submodule.
-- Move the submodule only to a commit that is on the aihc-parser `main` branch.
+- You can move the submodule to a commit that is not on the aihc-parser `main` branch.
+  For example, use the commit of an open aihc-parser PR.
 - In the aihc-fmt PR, give the aihc-parser PR that each submodule change includes.
 - Do not change the aihc-parser files only in aihc-fmt.
 

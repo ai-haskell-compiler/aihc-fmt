@@ -1,0 +1,15 @@
+extensions: []
+formatters:
+  aihc-fmt:
+    output: |
+      module Main where
+      h a b = if a
+        then someVeryLongFunctionName a b (anotherLongFunction b a) (moreArguments a b)
+        else yetAnotherFunction (a + b) (a * b) a (finalArgument b)
+      k a = someVeryLongFunctionName a (anotherLongFunction a a) (yetAnotherFunction a a) (oneMoreFunction a)
+        (lastFunctionName a a)
+    status: pass
+input: |
+  module Main where
+  h a b = if a then someVeryLongFunctionName a b (anotherLongFunction b a) (moreArguments a b) else yetAnotherFunction (a + b) (a * b) a (finalArgument b)
+  k a = someVeryLongFunctionName a (anotherLongFunction a a) (yetAnotherFunction a a) (oneMoreFunction a) (lastFunctionName a a)
