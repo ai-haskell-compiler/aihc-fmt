@@ -3,10 +3,8 @@ formatters:
   aihc-fmt:
     output: |
       module Main where
-      f x = x
-       + 1
-      g y = f
-        y
+      f x = x + 1
+      g y = f y
     status: pass
   hindent:
     output: |

@@ -4,12 +4,9 @@ formatters:
     output: |
       module Main where {
       main = do {
-        x <- pure
-          1;
-        y <- pure
-          2;
-        pure
-          y };
+        x <- pure 1;
+        y <- pure 2;
+        pure y };
       f v = case v of {
         True -> 1;
         False -> 0 };

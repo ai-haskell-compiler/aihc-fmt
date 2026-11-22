@@ -1,0 +1,15 @@
+extensions: []
+formatters:
+  aihc-fmt:
+    output: |
+      module Main (f,) where
+      import Data.List (sort,)
+      f = sort
+    status: pass
+input: |
+  module Main
+    ( f,
+    )
+  where
+  import Data.List (sort,)
+  f = sort

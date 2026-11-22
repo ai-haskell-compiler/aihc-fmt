@@ -51,8 +51,9 @@ Thus, a change in the submodule has an immediate effect on aihc-fmt.
 
 1. Make the change in `aihc-parser`.
 2. Run `just test` to see the effect on the formatter fixtures.
-3. Push the change to aihc-parser and merge it there.
+3. Push the change to aihc-parser and open a PR there.
 4. Move the submodule to the new aihc-parser commit and commit it in aihc-fmt.
+   The commit does not have to be on the aihc-parser `main` branch.
 
 ## Usage
 

@@ -19,19 +19,26 @@ cliTests =
     "cli"
     [ testCase "formats stdin to stdout" test_stdinStdout,
       testCase "check mode reports unformatted stdin" test_checkStdin,
-      testCase "inplace mode writes formatted files" test_inplace
+      testCase "inplace mode writes formatted files" test_inplace,
+      testCase "line width option sets where lines break" test_lineWidth
     ]
+
+test_lineWidth :: IO ()
+test_lineWidth = do
+  result <- runCLI missingReader missingWriter (Options ModeStdout [] 10 []) "x = aaaa + bbbb\n"
+  assertEqual "exit" ExitSuccess (cliExitCode result)
+  assertEqual "stdout" "x = aaaa\n + bbbb\n" (cliStdout result)
 
 test_stdinStdout :: IO ()
 test_stdinStdout = do
-  result <- runCLI missingReader missingWriter (Options ModeStdout [] []) "x=1\n"
+  result <- runCLI missingReader missingWriter (Options ModeStdout [] 120 []) "x=1\n"
   assertEqual "exit" ExitSuccess (cliExitCode result)
   assertEqual "stdout" "x = 1\n" (cliStdout result)
   assertEqual "stderr" "" (cliStderr result)
 
 test_checkStdin :: IO ()
 test_checkStdin = do
-  result <- runCLI missingReader missingWriter (Options ModeCheck [] []) "x=1\n"
+  result <- runCLI missingReader missingWriter (Options ModeCheck [] 120 []) "x=1\n"
   assertEqual "exit" (ExitFailure 1) (cliExitCode result)
   assertEqual "stdout" "" (cliStdout result)
   assertEqual "stderr" "<stdin>: needs formatting\n" (cliStderr result)
@@ -43,7 +50,7 @@ test_inplace = do
         files <- readIORef ref
         pure (files M.! path)
       writer path contents = modifyIORef' ref (M.insert path contents)
-  result <- runCLI reader writer (Options ModeInplace [] ["Example.hs"]) ""
+  result <- runCLI reader writer (Options ModeInplace [] 120 ["Example.hs"]) ""
   files <- readIORef ref
   assertEqual "exit" ExitSuccess (cliExitCode result)
   assertEqual "file" (Just "x = 1\n") (M.lookup "Example.hs" files)
